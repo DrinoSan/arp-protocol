@@ -49,8 +49,9 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     uint16_t ether_type =
         ( ethernet_header[ 12 ] << 8 ) | ethernet_header[ 13 ];
 
+    // ARP EtherType
     if ( ether_type == 0x0806 )
-    {   // ARP EtherType
+    {
         const unsigned char* arp_packet =
             packet + 14;   // ARP packet starts at offset 14
                            // 6 Byte Source Mac address
@@ -78,7 +79,7 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
         std::cout << "ARP Frame Information:\n";
         std::cout << "Hardware Type: 0x" << std::hex << hardware_type
                   << std::dec << "\n";
-        std::cout << "Protocol Type: 0x" << std::hex << protocol_type
+        std::cout << "Ether type / Frame Type: 0x" << std::hex << protocol_type
                   << std::dec << "\n";
         std::cout << "Hardware Size: " << static_cast<int>( hardware_size )
                   << "\n";
