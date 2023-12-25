@@ -1,9 +1,9 @@
 #include <cstring>
 #include <iostream>
+#include <libnet.h>
 #include <netinet/if_ether.h>
 #include <pcap.h>
 #include <thread>
-#include <libnet.h>
 
 // ArpChat includes
 #include "messages.h"
@@ -46,7 +46,8 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
 {
     print_packet( packet, pkthdr->len );
     std::cout << "------------------------------------" << std::endl;
-    if ( !ArpChat::EthernetFrame::isArp( packet ) )
+    if ( !ArpChat::EthernetFrame::isArp( packet ) ||
+         !ArpChat::ArpMessage::isArpChatMessage( packet ) )
     {
         // We are only interested in arp packages
         return;
@@ -76,11 +77,20 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
               << "\n";
     std::cout << "Operation Code: " << frame.payload.oper << "\n";
 
-    std::cout << "Sender MAC Address: " << frame.payload.sha;
+    std::cout << "Sender MAC Address: " << frame.payload.sha << '\n';
+    std::cout << "Sender Protocol Address: " << frame.payload.spa << '\n';
+
+    std::cout << "Target MAC Address: " << frame.payload.tha << '\n';
+    std::cout << "Target Protocol Address: " << frame.payload.tpa << '\n';
     // print_mac_address( arp_packet + SENDER_HARDWARE_ADDRESS );
     std::cout << "\n";
 
     std::cout << "\n";
+
+    std::cout << "-------------+++++++++++++" << std::endl;
+    ArpChat::ArpMessage message;
+    message.parseArpChatMessage( packet );
+    std::cout << "+++++++++++++-------------" << std::endl;
 }
 
 void capturePackets()
@@ -130,69 +140,66 @@ void capturePackets()
     pcap_close( handle );
 }
 
-void sendGratuitousArp() {
-    libnet_t *l;
-    char errbuf[LIBNET_ERRBUF_SIZE];
+void sendGratuitousArp()
+{
+    libnet_t* l;
+    char      errbuf[ LIBNET_ERRBUF_SIZE ];
 
     // Initialize the library
-    l = libnet_init(LIBNET_LINK, "en0", errbuf);
-    if (l == nullptr) {
+    l = libnet_init( LIBNET_LINK, "en0", errbuf );
+    if ( l == nullptr )
+    {
         std::cerr << "libnet_init() failed: " << errbuf << std::endl;
         return;
     }
 
     // Replace these with your actual MAC and IP addresses
-    uint8_t sourceMac[] = {0x74, 0x8f, 0x3c, 0xb9, 0x8f, 0xf5};
-    uint8_t sourceIp[] = {192, 168, 0, 99};
-    uint8_t broadcastMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    uint8_t sourceMac[]    = { 0x74, 0x8f, 0x3c, 0xb9, 0x8f, 0xf5 };
+    uint8_t sourceIp[]     = { 192, 168, 0, 99 };
+    uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-    std::string customData = "HI THIS IS A TEST";
+    std::string customData = "SANDHI THIS IS A TEST";
     // Build ARP packet
     libnet_ptag_t arp_tag = libnet_build_arp(
-        ARPHRD_ETHER,
-        ETHERTYPE_IP,
-        6,
-        customData.size(),
-        ARPOP_REQUEST,
-        sourceMac,
-        reinterpret_cast<uint8_t*>(customData.data()),
-        broadcastMac,
-        reinterpret_cast<uint8_t*>(customData.data()),
-        nullptr, 0,
-        l, 0
-    );
+        ARPHRD_ETHER, ETHERTYPE_IP, 6, customData.size(), ARPOP_REQUEST,
+        sourceMac, reinterpret_cast<uint8_t*>( customData.data() ),
+        broadcastMac, reinterpret_cast<uint8_t*>( customData.data() ), nullptr,
+        0, l, 0 );
 
-    if (arp_tag == -1) {
-        std::cerr << "libnet_build_arp() failed: " << libnet_geterror(l) << std::endl;
-        libnet_destroy(l);
+    if ( arp_tag == -1 )
+    {
+        std::cerr << "libnet_build_arp() failed: " << libnet_geterror( l )
+                  << std::endl;
+        libnet_destroy( l );
         return;
     }
 
     // Build Ethernet frame
     libnet_ptag_t eth_tag = libnet_build_ethernet(
-        broadcastMac,
-        sourceMac,
-        ETHERTYPE_ARP,
-        nullptr, 0,
-        l, 0
-    );
+        broadcastMac, sourceMac, ETHERTYPE_ARP, nullptr, 0, l, 0 );
 
-    if (eth_tag == -1) {
-        std::cerr << "libnet_build_ethernet() failed: " << libnet_geterror(l) << std::endl;
-        libnet_destroy(l);
+    if ( eth_tag == -1 )
+    {
+        std::cerr << "libnet_build_ethernet() failed: " << libnet_geterror( l )
+                  << std::endl;
+        libnet_destroy( l );
         return;
     }
 
     // Write the packet to the network
-    int bytes_written = libnet_write(l);
-    if (bytes_written == -1) {
-        std::cerr << "libnet_write() failed: " << libnet_geterror(l) << std::endl;
-    } else {
+    int bytes_written = libnet_write( l );
+    if ( bytes_written == -1 )
+    {
+        std::cerr << "libnet_write() failed: " << libnet_geterror( l )
+                  << std::endl;
+    }
+    else
+    {
         std::cout << "Gratuitous ARP packet sent successfully." << std::endl;
     }
 
     // Cleanup
-    libnet_destroy(l);
+    libnet_destroy( l );
 }
 
 int main()
