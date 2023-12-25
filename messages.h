@@ -1,10 +1,10 @@
 #include <cstdint>
 #include <iomanip>
 #include <string>
-#include <sys/_types/_int16_t.h>
 
 namespace ArpChat
 {
+
 class ArpPackage
 {
   public:
@@ -40,6 +40,22 @@ class EthernetFrame
     std::string hexToString( const unsigned char* packet );
     std::string ipToString( const unsigned char* packet );
     void        printMacAddress( bool showDestination ) const;
+};
+
+class ArpMessage
+{
+  public:
+    ArpMessage( );
+    ~ArpMessage() = default;
+
+    static bool isArpChatMessage( const unsigned char* packet );
+    void        parseArpChatMessage( const unsigned char* packet );
+    void        parseMesage( ArpPackage payload );
+
+    std::string message;
+
+    // For Logging
+    std::string prefix;
 };
 
 }   // namespace ArpChat
