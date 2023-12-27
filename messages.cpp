@@ -28,23 +28,6 @@ EthernetFrame::EthernetFrame( const unsigned char* packet, int length )
 
     payload.sha = hexToString( packetPayload + 8 );
     payload.tha = hexToString( packetPayload + 18 );
-
-    // std::string prefix{packetPayload + 14, packetPayload + 18};
-
-    // This is temporary
-    // if( prefix != "SAND" && payload.plen != 4 )
-    // {
-    //     payload.spa = ipToString( packetPayload + 14 );
-    //     payload.tpa = ipToString( packetPayload + 24 );
-    // }
-    // else
-    // {
-    //     std::cout << "PAYLOAD LENGTH: " << payload.plen << std::endl;
-    //     std::string message{packetPayload + 14, packetPayload + 14 +
-    //     payload.plen}; payload.spa = message; payload.tpa = message;
-    // }
-
-    // Checking of ethertype
 }
 
 std::string EthernetFrame::hexToString( const unsigned char* packet )
