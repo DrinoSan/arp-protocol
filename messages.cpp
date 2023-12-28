@@ -102,7 +102,7 @@ void ArpMessage::parseArpChatMessage( const unsigned char* packet )
     // This is actually not needed really
     EthernetFrame frame( packet, 0 );
 
-    std::string message{ packetPayload + 14,
+    std::string tmpMessage{ packetPayload + 14,
                          packetPayload + 14 + arpMessageLen };
 
     prefix            = spaPrefix;
@@ -110,7 +110,9 @@ void ArpMessage::parseArpChatMessage( const unsigned char* packet )
     frame.payload.tpa = message;
 
     std::cout << "IS ARP CHAT MESSAGE PREFIX: " << spaPrefix << std::endl;
-    std::cout << "IS ARP CHAT MESSAGE: " << message << std::endl;
+    std::cout << "IS ARP CHAT MESSAGE: " << tmpMessage << std::endl;
+
+    message = tmpMessage;
 }
 
 }   // namespace ArpChat

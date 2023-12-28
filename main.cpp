@@ -1,9 +1,24 @@
 #include <cstring>
+#include <ftxui/component/event.hpp>
+#include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/screen.hpp>
 #include <iostream>
 #include <libnet.h>
+#include <memory>   // for allocator, __shared_ptr_access
+#include <mutex>
 #include <netinet/if_ether.h>
 #include <pcap.h>
+#include <string>   // for char_traits, operator+, string, basic_string
 #include <thread>
+
+// FTXUI stuff
+#include "ftxui/component/captured_mouse.hpp"   // for ftxui
+#include "ftxui/component/component.hpp"        // for Input, Renderer, Vertical
+#include "ftxui/component/component_base.hpp"   // for ComponentBase
+#include "ftxui/component/component_options.hpp"   // for InputOption
+#include "ftxui/component/screen_interactive.hpp"   // for Component, ScreenInteractive
+#include "ftxui/dom/elements.hpp"   // for text, hbox, separator, Element, operator|, vbox, border
+#include "ftxui/util/ref.hpp"   // for Ref
 
 // ArpChat includes
 #include "messages.h"
@@ -14,6 +29,10 @@ constexpr int32_t SENDER_PROTOCOL_ADDRESS{ 14 };   // Ipv4
 
 constexpr int32_t TARGET_HARDWARE_ADDRESS{ 18 };
 constexpr int32_t TARGET_PROTOCOL_ADDRESS{ 24 };   // Ipv4
+
+std::mutex              capturedResultMutex;
+std::queue<std::string> capturedResults;
+bool                    stopCapturing = false;
 
 void print_mac_address( const unsigned char* mac_address )
 {
@@ -44,7 +63,7 @@ void print_packet( const unsigned char* packet, int length )
 void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
                      const unsigned char* packet )
 {
-    print_packet( packet, pkthdr->len );
+    // print_packet( packet, pkthdr->len );
     std::cout << "------------------------------------" << std::endl;
     if ( !ArpChat::EthernetFrame::isArp( packet ) ||
          !ArpChat::ArpMessage::isArpChatMessage( packet ) )
@@ -63,33 +82,38 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     // SPA will be our message we want to send
 
     ArpChat::EthernetFrame frame( packet, pkthdr->caplen );
-    std::cout << "Destination Mac: " << frame.destinationMacAddr << '\n';
-    std::cout << "Source Mac:      " << frame.sourceMacAddr << '\n';
+    // std::cout << "Destination Mac: " << frame.destinationMacAddr << '\n';
+    // std::cout << "Source Mac:      " << frame.sourceMacAddr << '\n';
 
-    std::cout << "ARP Frame Information:\n";
-    std::cout << "Hardware Type: 0x" << std::hex << frame.payload.htype
-              << std::dec << "\n";
-    std::cout << "Ether type / Frame Type: 0x" << std::hex << frame.etherType
-              << std::dec << "\n";
-    std::cout << "Hardware Size: " << static_cast<int>( frame.payload.hlen )
-              << "\n";
-    std::cout << "Protocol Size: " << static_cast<int>( frame.payload.plen )
-              << "\n";
-    std::cout << "Operation Code: " << frame.payload.oper << "\n";
+    // std::cout << "ARP Frame Information:\n";
+    // std::cout << "Hardware Type: 0x" << std::hex << frame.payload.htype
+    //           << std::dec << "\n";
+    // std::cout << "Ether type / Frame Type: 0x" << std::hex << frame.etherType
+    //           << std::dec << "\n";
+    // std::cout << "Hardware Size: " << static_cast<int>( frame.payload.hlen )
+    //           << "\n";
+    // std::cout << "Protocol Size: " << static_cast<int>( frame.payload.plen )
+    //           << "\n";
+    // std::cout << "Operation Code: " << frame.payload.oper << "\n";
 
-    std::cout << "Sender MAC Address: " << frame.payload.sha << '\n';
-    std::cout << "Sender Protocol Address: " << frame.payload.spa << '\n';
+    // std::cout << "Sender MAC Address: " << frame.payload.sha << '\n';
+    // std::cout << "Sender Protocol Address: " << frame.payload.spa << '\n';
 
-    std::cout << "Target MAC Address: " << frame.payload.tha << '\n';
-    std::cout << "Target Protocol Address: " << frame.payload.tpa << '\n';
-    // print_mac_address( arp_packet + SENDER_HARDWARE_ADDRESS );
-    std::cout << "\n";
+    // std::cout << "Target MAC Address: " << frame.payload.tha << '\n';
+    // std::cout << "Target Protocol Address: " << frame.payload.tpa << '\n';
+    // // print_mac_address( arp_packet + SENDER_HARDWARE_ADDRESS );
+    // std::cout << "\n";
 
     std::cout << "\n";
 
     std::cout << "-------------+++++++++++++" << std::endl;
     ArpChat::ArpMessage message;
     message.parseArpChatMessage( packet );
+    // Store the result in the queue for the UI thread.
+    std::lock_guard<std::mutex> lock( capturedResultMutex );
+    capturedResults.push( message.message );
+    std::cout << "MESSAGE: " << message.message << std::endl;
+
     std::cout << "+++++++++++++-------------" << std::endl;
 }
 
@@ -209,6 +233,50 @@ int main()
 
     // Sending packet
     sendGratuitousArp();
+
+    ////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////// GUI STUFF BEGINN
+    /////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////
+    // std::lock_guard<std::mutex> lock( captured_result_mutex );
+
+    //  Main UI loop.
+    using namespace ftxui;
+    auto screen = ScreenInteractive::TerminalOutput();
+
+    auto renderer = Renderer(
+        [ & ]
+        {
+            std::lock_guard<std::mutex> lock( capturedResultMutex );
+            if ( !capturedResults.empty() )
+            {
+                auto result = text( capturedResults.front() );
+                capturedResults.pop();
+                return result;
+            }
+            return text( "No captured result" );
+        } );
+
+    auto component = CatchEvent( renderer,
+                                 [ & ]( Event event )
+                                 {
+                                     if ( event == Event::Character( 'q' ) )
+                                     {
+                                         screen.ExitLoopClosure()();
+                                         stopCapturing = true;
+                                         return true;
+                                     }
+                                     return false;
+                                 } );
+
+    // Run the UI loop.
+    screen.Loop(component);
+
+
+    ////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////// GUI STUFF END
+    ////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////
 
     // Wait for the capture thread to finish
     captureThread.join();
