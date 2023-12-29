@@ -1,7 +1,5 @@
 #include <cstring>
-#include <ftxui/component/event.hpp>
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/screen/screen.hpp>
+#include <deque>
 #include <iostream>
 #include <libnet.h>
 #include <memory>   // for allocator, __shared_ptr_access
@@ -10,18 +8,18 @@
 #include <pcap.h>
 #include <string>   // for char_traits, operator+, string, basic_string
 #include <thread>
+#include <fstream>
 
 // FTXUI stuff
-#include "ftxui/component/captured_mouse.hpp"   // for ftxui
-#include "ftxui/component/component.hpp"        // for Input, Renderer, Vertical
-#include "ftxui/component/component_base.hpp"   // for ComponentBase
-#include "ftxui/component/component_options.hpp"   // for InputOption
-#include "ftxui/component/screen_interactive.hpp"   // for Component, ScreenInteractive
-#include "ftxui/dom/elements.hpp"   // for text, hbox, separator, Element, operator|, vbox, border
-#include "ftxui/util/ref.hpp"   // for Ref
+#include "ftxui/component/component.hpp"
+#include <ftxui/component/screen_interactive.hpp>
+#include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/string.hpp>
 
 // ArpChat includes
 #include "messages.h"
+
+void AddMessage( const std::string& message );
 
 // https://en.wikipedia.org/wiki/Address_Resolution_Protocol#cite_note-IANA-2
 constexpr int32_t SENDER_HARDWARE_ADDRESS{ 8 };
@@ -33,6 +31,17 @@ constexpr int32_t TARGET_PROTOCOL_ADDRESS{ 24 };   // Ipv4
 std::mutex              capturedResultMutex;
 std::queue<std::string> capturedResults;
 bool                    stopCapturing = false;
+
+std::mutex              chatMutex;
+std::deque<std::string> chatHistory;
+
+// Persistent input buffer.
+std::string inputBuffer;
+// Persistent input field.
+ftxui::Component inputField =
+    ftxui::Input( &inputBuffer, "Type a message and press Enter..." );
+
+bool updateFlag = false;
 
 void print_mac_address( const unsigned char* mac_address )
 {
@@ -64,7 +73,6 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
                      const unsigned char* packet )
 {
     // print_packet( packet, pkthdr->len );
-    std::cout << "------------------------------------" << std::endl;
     if ( !ArpChat::EthernetFrame::isArp( packet ) ||
          !ArpChat::ArpMessage::isArpChatMessage( packet ) )
     {
@@ -72,37 +80,7 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
         return;
     }
 
-    // PLEN protocol address length which is in ipv4 = 4 because ip address is
-    // 4 byte long We will use this to set our length of our message Also PLEN
-    // sets the limit of our messages which is 1 byte or 255 characters
-
-    // Our chat will use as a prefix identifier sand
-    // And then followed by our message
-
-    // SPA will be our message we want to send
-
     ArpChat::EthernetFrame frame( packet, pkthdr->caplen );
-    // std::cout << "Destination Mac: " << frame.destinationMacAddr << '\n';
-    // std::cout << "Source Mac:      " << frame.sourceMacAddr << '\n';
-
-    // std::cout << "ARP Frame Information:\n";
-    // std::cout << "Hardware Type: 0x" << std::hex << frame.payload.htype
-    //           << std::dec << "\n";
-    // std::cout << "Ether type / Frame Type: 0x" << std::hex << frame.etherType
-    //           << std::dec << "\n";
-    // std::cout << "Hardware Size: " << static_cast<int>( frame.payload.hlen )
-    //           << "\n";
-    // std::cout << "Protocol Size: " << static_cast<int>( frame.payload.plen )
-    //           << "\n";
-    // std::cout << "Operation Code: " << frame.payload.oper << "\n";
-
-    // std::cout << "Sender MAC Address: " << frame.payload.sha << '\n';
-    // std::cout << "Sender Protocol Address: " << frame.payload.spa << '\n';
-
-    // std::cout << "Target MAC Address: " << frame.payload.tha << '\n';
-    // std::cout << "Target Protocol Address: " << frame.payload.tpa << '\n';
-    // // print_mac_address( arp_packet + SENDER_HARDWARE_ADDRESS );
-    // std::cout << "\n";
 
     std::cout << "\n";
 
@@ -113,6 +91,7 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     std::lock_guard<std::mutex> lock( capturedResultMutex );
     capturedResults.push( message.message );
     std::cout << "MESSAGE: " << message.message << std::endl;
+    AddMessage( message.message );
 
     std::cout << "+++++++++++++-------------" << std::endl;
 }
@@ -164,7 +143,8 @@ void capturePackets()
     pcap_close( handle );
 }
 
-void sendGratuitousArp()
+void sendGratuitousArp( ftxui::ScreenInteractive& screen,
+                        ftxui::Component&         inputField )
 {
     libnet_t* l;
     char      errbuf[ LIBNET_ERRBUF_SIZE ];
@@ -182,7 +162,11 @@ void sendGratuitousArp()
     uint8_t sourceIp[]     = { 192, 168, 0, 99 };
     uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-    std::string customData = "SANDHI THIS IS A TEST";
+    std::string customData = inputBuffer;   // Access inputBuffer here
+    customData = "SAND" + inputBuffer;
+    std::cout << "INPUT BUFFER: " << customData
+              << std::endl;   // Print for debugging
+
     // Build ARP packet
     libnet_ptag_t arp_tag = libnet_build_arp(
         ARPHRD_ETHER, ETHERTYPE_IP, 6, customData.size(), ARPOP_REQUEST,
@@ -220,10 +204,49 @@ void sendGratuitousArp()
     else
     {
         std::cout << "Gratuitous ARP packet sent successfully." << std::endl;
+        // Clear the input field and trigger a custom event to update the UI
+        inputBuffer.clear();
+        screen.PostEvent(ftxui::Event::Custom);
     }
 
     // Cleanup
     libnet_destroy( l );
+}
+
+// Function to add a new message to the chat history.
+void AddMessage( const std::string& message )
+{
+    std::lock_guard<std::mutex> lock( chatMutex );
+    std::cout << "WE ADD THIS MESSAGE: " << message << '\n';
+    chatHistory.push_back( message );
+    updateFlag = true;
+
+    // Limit the chat history to a certain number of messages.
+    const size_t maxHistorySize = 10;
+    while ( chatHistory.size() > maxHistorySize )
+    {
+        chatHistory.pop_front();
+    }
+}
+
+void UpdateLoop()
+{
+    while ( true )
+    {
+        std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+
+        // Set the update flag.
+        updateFlag = true;
+    }
+}
+
+void TimerFunction( ftxui::ScreenInteractive& screen )
+{
+    while ( !stopCapturing )
+    {
+        std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+        screen.PostEvent( ftxui::Event::Custom );
+    }
 }
 
 int main()
@@ -231,47 +254,79 @@ int main()
     // Start a thread for packet capture
     std::thread captureThread( capturePackets );
 
-    // Sending packet
-    sendGratuitousArp();
-
     ////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////// GUI STUFF BEGINN
     /////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////
-    // std::lock_guard<std::mutex> lock( captured_result_mutex );
 
-    //  Main UI loop.
+    // Main UI loop.
     using namespace ftxui;
     auto screen = ScreenInteractive::TerminalOutput();
 
+    // The component tree:
+    auto inputComponent = Container::Vertical( {
+        inputField,
+    } );
+
     auto renderer = Renderer(
+        inputComponent,
         [ & ]
         {
-            std::lock_guard<std::mutex> lock( capturedResultMutex );
-            if ( !capturedResults.empty() )
+            std::lock_guard<std::mutex> lock( chatMutex );
+
+            std::vector<Element> chatElements;
+            for ( const auto& message : chatHistory )
             {
-                auto result = text( capturedResults.front() );
-                capturedResults.pop();
-                return result;
+                chatElements.push_back( text( message ) );
             }
-            return text( "No captured result" );
+
+            // Combine the text elements into a vbox.
+            auto tmpVbox = vbox( std::move( chatElements ) );
+
+            // Reset the update flag.
+            updateFlag = false;
+
+            // Create a vbox for the chat history and input field.
+            auto vboxWithInput =
+                vbox( { text( L"Chat History" ) | hcenter, tmpVbox, separator(),
+                        hbox( text( " Message Input : " ),
+                              inputField->Render() ) } ) |
+                border;
+
+            return vboxWithInput;
         } );
 
-    auto component = CatchEvent( renderer,
-                                 [ & ]( Event event )
-                                 {
-                                     if ( event == Event::Character( 'q' ) )
-                                     {
-                                         screen.ExitLoopClosure()();
-                                         stopCapturing = true;
-                                         return true;
-                                     }
-                                     return false;
-                                 } );
+    auto component =
+        CatchEvent( renderer,
+                    [ & ]( Event event )
+                    {
+                        if ( event == ftxui::Event::Character( 'q' ) )
+                        {
+                            screen.ExitLoopClosure()();
+                            stopCapturing = true;
+                            return true;
+                        }
+                        else if ( event == ftxui::Event::Return )
+                        {
+                            // Call your function to send messages.
+                            sendGratuitousArp( screen, inputField );
+                            return true;
+                        }
+                        return false;
+                    } );
 
-    // Run the UI loop.
-    screen.Loop(component);
+    // Start a thread for automatic updates using a timer.
+    std::thread timerThread(
+        [ & ]
+        {
+            while ( !stopCapturing )
+            {
+                std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+                screen.PostEvent( ftxui::Event::Custom );
+            }
+        } );
 
+    screen.Loop( component );
 
     ////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////// GUI STUFF END
@@ -280,6 +335,9 @@ int main()
 
     // Wait for the capture thread to finish
     captureThread.join();
+
+    // Wait for the timer thread to finish
+    timerThread.join();
 
     return 0;
 }
