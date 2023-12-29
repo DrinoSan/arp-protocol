@@ -76,18 +76,12 @@ void packet_handler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
 
     ArpChat::EthernetFrame frame( packet, pkthdr->caplen );
 
-    std::cout << "\n";
-
-    std::cout << "-------------+++++++++++++" << std::endl;
     ArpChat::ArpMessage message;
     message.parseArpChatMessage( packet );
     // Store the result in the queue for the UI thread.
     std::lock_guard<std::mutex> lock( capturedResultMutex );
     capturedResults.push( message.message );
-    std::cout << "MESSAGE: " << message.message << std::endl;
     AddMessage( message.message );
-
-    std::cout << "+++++++++++++-------------" << std::endl;
 }
 
 void capturePackets()
@@ -195,7 +189,6 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
     }
     else
     {
-        std::cout << "Gratuitous ARP packet sent successfully." << std::endl;
         // Clear the input field and trigger a custom event to update the UI
         inputBuffer.clear();
         screen.PostEvent( ftxui::Event::Custom );
@@ -209,7 +202,6 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
 void AddMessage( const std::string& message )
 {
     std::lock_guard<std::mutex> lock( chatMutex );
-    std::cout << "WE ADD THIS MESSAGE: " << message << '\n';
     chatHistory.push_back( message );
     updateFlag = true;
 
