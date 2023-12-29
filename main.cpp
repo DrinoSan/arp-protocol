@@ -1,5 +1,6 @@
 #include <cstring>
 #include <deque>
+#include <fstream>
 #include <iostream>
 #include <libnet.h>
 #include <memory>   // for allocator, __shared_ptr_access
@@ -8,7 +9,6 @@
 #include <pcap.h>
 #include <string>   // for char_traits, operator+, string, basic_string
 #include <thread>
-#include <fstream>
 
 // FTXUI stuff
 #include "ftxui/component/component.hpp"
@@ -21,17 +21,11 @@
 
 void AddMessage( const std::string& message );
 
-// https://en.wikipedia.org/wiki/Address_Resolution_Protocol#cite_note-IANA-2
-constexpr int32_t SENDER_HARDWARE_ADDRESS{ 8 };
-constexpr int32_t SENDER_PROTOCOL_ADDRESS{ 14 };   // Ipv4
-
-constexpr int32_t TARGET_HARDWARE_ADDRESS{ 18 };
-constexpr int32_t TARGET_PROTOCOL_ADDRESS{ 24 };   // Ipv4
-
 std::mutex              capturedResultMutex;
 std::queue<std::string> capturedResults;
 bool                    stopCapturing = false;
 
+// Chat and history stuff
 std::mutex              chatMutex;
 std::deque<std::string> chatHistory;
 
@@ -163,9 +157,7 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
     uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
     std::string customData = inputBuffer;   // Access inputBuffer here
-    customData = "SAND" + inputBuffer;
-    std::cout << "INPUT BUFFER: " << customData
-              << std::endl;   // Print for debugging
+    customData             = "SAND" + inputBuffer;
 
     // Build ARP packet
     libnet_ptag_t arp_tag = libnet_build_arp(
@@ -206,7 +198,7 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
         std::cout << "Gratuitous ARP packet sent successfully." << std::endl;
         // Clear the input field and trigger a custom event to update the UI
         inputBuffer.clear();
-        screen.PostEvent(ftxui::Event::Custom);
+        screen.PostEvent( ftxui::Event::Custom );
     }
 
     // Cleanup
