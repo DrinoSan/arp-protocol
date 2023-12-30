@@ -147,7 +147,6 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
 
     // Replace these with your actual MAC and IP addresses
     uint8_t sourceMac[]    = { 0x74, 0x8f, 0x3c, 0xb9, 0x8f, 0xf5 };
-    uint8_t sourceIp[]     = { 192, 168, 0, 99 };
     uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
     std::string customData = inputBuffer;   // Access inputBuffer here
