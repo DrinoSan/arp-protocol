@@ -3,8 +3,6 @@
 
 #include "messages.h"
 
-#define MESSAGE_PREFIX "SAND"
-
 namespace ArpChat
 {
 
@@ -14,7 +12,7 @@ EthernetFrame::EthernetFrame( const unsigned char* packet, int length )
     // Source mac addressof ethernet frame starts at offset 7
     sourceMacAddr = hexToString( packet + 6 );
 
-    // This should be 0x0806, we check it in isArp already
+    // This should be 0x0806, we check it in isArp already function
     etherType = packet[ 12 ] << 8 | packet[ 13 ];
 
     auto packetPayload = packet + 14;
@@ -80,11 +78,23 @@ bool ArpMessage::isArpChatMessage( const unsigned char* packet )
     auto arpMessageLen = static_cast<int>( packetPayload[ 5 ] );
 
     // TODO make this more clear
-    std::string spaPrefix{ packetPayload + 14, packetPayload + 18 };
-    std::string tpaPrefix{ packetPayload + 14 + arpMessageLen + 6,
-                           packetPayload + 14 + arpMessageLen + 6 + 4 };
+    std::string spaPrefix{ packetPayload + 14, packetPayload + 20 };
 
-    if ( spaPrefix != MESSAGE_PREFIX || tpaPrefix != MESSAGE_PREFIX )
+    // Begin of TPA prefix
+    // packetPaload -> Where the payload of the ethernet starts
+    // 14 -> offet till SPA
+    // arpMessageLen -> length of the message max 255 (PLEN is unsigned char)
+    // 6 -> Length of Target Hardware Address (THA)
+    // END of TPA prefix
+    // packetPayload + 14 + arpMessageLen + 6 same as above
+    // 6 Lengh of prefix 1_SAND or 2_SAND
+    std::string tpaPrefix{ packetPayload + 14 + arpMessageLen + 6,
+                           packetPayload + 14 + arpMessageLen + 6 + 6 };
+
+    // Check for normal message
+    if ( ( spaPrefix != MESSAGE_PREFIX || tpaPrefix != MESSAGE_PREFIX ) &&
+         ( spaPrefix != NEW_USER_ANNOUNCEMENT ||
+           tpaPrefix != NEW_USER_ANNOUNCEMENT ) )
     {
         return false;
     }
@@ -94,22 +104,24 @@ bool ArpMessage::isArpChatMessage( const unsigned char* packet )
 
 void ArpMessage::parseArpChatMessage( const unsigned char* packet )
 {
+    // packetPayload + 14 -> offset of the ethernetframe payload
     auto        packetPayload = packet + 14;
-    std::string spaPrefix{ packetPayload + 14, packetPayload + 18 };
+    std::string spaPrefix{ packetPayload + 14, packetPayload + 20 };
 
     auto arpMessageLen = packetPayload[ 5 ];
 
-    // This is actually not needed really
-    EthernetFrame frame( packet, 0 );
-
-    std::string tmpMessage{ packetPayload + 14,
+    // packetPayload + 14 -> Sender protocol address (SPA) beginning
+    // MESSAGE_PREFIX_LENGTH -> The length of the prefix
+    // Same as above
+    // arpMessageLen -> Length of the user message
+    std::string tmpMessage{ packetPayload + 14 + MESSAGE_PREFIX_LENGTH,
                             packetPayload + 14 + arpMessageLen };
 
-    prefix            = spaPrefix;
-    frame.payload.spa = message;
-    frame.payload.tpa = message;
+    EthernetFrame etherFrame( packet, 0xDEADBEEF );
 
+    prefix  = spaPrefix;
     message = tmpMessage;
+    mac     = etherFrame.payload.sha;
 }
 
 }   // namespace ArpChat

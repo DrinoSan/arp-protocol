@@ -2,6 +2,9 @@
 #include <iomanip>
 #include <string>
 
+#define MESSAGE_PREFIX        "1_SAND"
+#define NEW_USER_ANNOUNCEMENT "2_SAND"
+#define MESSAGE_PREFIX_LENGTH 6
 namespace ArpChat
 {
 
@@ -53,6 +56,7 @@ class ArpMessage
     void        parseMesage( ArpPackage payload );
 
     std::string message;
+    std::string mac;
 
     // For Logging
     std::string prefix;
