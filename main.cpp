@@ -19,6 +19,7 @@
 
 // ArpChat includes
 #include "messages.h"
+#include "utils.h"
 
 void AddMessage( const std::string& message );
 
@@ -40,45 +41,6 @@ ftxui::Component inputField =
 bool updateFlag = false;
 
 std::map<std::string, std::string> macToUsernameMapping;
-
-void print_mac_address( const unsigned char* mac_address )
-{
-    for ( int i = 0; i < 6; ++i )
-    {
-        printf( "%02X", mac_address[ i ] );
-        if ( i < 5 )
-            std::cout << ":";
-    }
-}
-
-std::string macToString( uint8_t* mac )
-{
-    std::string tmpMac;
-    for ( int i = 0; i < 6; ++i )
-    {
-        tmpMac += mac[ i ];
-        if ( i < 5 )
-            tmpMac += ":";
-    }
-
-    return tmpMac;
-}
-
-void print_packet( const unsigned char* packet, int length )
-{
-    for ( int i = 0; i < length; ++i )
-    {
-        // setw: https://en.cppreference.com/w/cpp/io/manip/setw
-        // setfill: https://en.cppreference.com/w/cpp/io/manip/setfill
-        std::cout << std::hex << std::setw( 2 ) << std::setfill( '0' )
-                  << static_cast<int>( packet[ i ] ) << " ";
-        if ( ( i + 1 ) % 16 == 0 )
-        {
-            std::cout << std::endl;
-        }
-    }
-    std::cout << std::dec << std::endl;
-}
 
 void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
                     const unsigned char* packet )
@@ -300,7 +262,7 @@ void announceNewUser()
                         {
                             // Call your function to send
                             // messages.
-                            macToUsernameMapping[ macToString( sourceMac ) ] =
+                            macToUsernameMapping[ ArpChat::macToString( sourceMac ) ] =
                                 first_name;
                             screen.ExitLoopClosure()();
                             return true;
