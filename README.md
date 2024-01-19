@@ -16,3 +16,11 @@ Currently the EthernetFrame class is responsible to parse the raw bytes into a E
 ## Sending Arp over the Network
 For this we use the library [libnet](https://github.com/libnet/libnet)
 To identify a ArpChat message we add a prefix which is "SAND" to each message.
+
+
+## Current Status
+Working on refactoring.
+Split in following parts
+Gui
+Chat
+Messages
