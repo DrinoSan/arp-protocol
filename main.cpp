@@ -8,37 +8,23 @@
 #include <mutex>
 #include <netinet/if_ether.h>
 #include <pcap.h>
+#include <queue>
 #include <string>
 #include <thread>
 
-// FTXUI stuff
-#include "ftxui/component/component.hpp"
-#include <ftxui/component/screen_interactive.hpp>
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/screen/string.hpp>
-
 // ArpChat includes
+#include "ArpChat.h"
+#include "gui.h"
 #include "messages.h"
 #include "utils.h"
-
-void AddMessage( const std::string& message );
 
 // I know global variables are usually bad but
 std::mutex              capturedResultMutex;
 std::queue<std::string> capturedResults;
 bool                    stopCapturing = false;
 
-// Chat and history stuff
-std::mutex              chatMutex;
-std::deque<std::string> chatHistory;
-
 // Persistent input buffer.
 std::string inputBuffer;
-// Persistent input field.
-ftxui::Component inputField =
-    ftxui::Input( &inputBuffer, "Type a message and press Enter..." );
-
-bool updateFlag = false;
 
 std::map<std::string, std::string> macToUsernameMapping;
 
@@ -63,22 +49,25 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     if ( message.prefix == NEW_USER_ANNOUNCEMENT )
     {
         macToUsernameMapping[ message.mac ] = message.message;
-        AddMessage( std::string( "New User (" ) +
-                    message.message + ") entered the chat" );
+        std::string buf = std::string( "New User (" ) + message.message +
+                          ") entered the chat";
+        std::string* userData = ( std::string* ) user;
+        *userData             = buf;
         capturedResults.push( message.message );
 
         return;
     }
 
-    auto userName = macToUsernameMapping[message.mac];
+    auto userName   = macToUsernameMapping[ message.mac ];
     message.message = userName += ": " + message.message;
 
     // Store the result in the queue for the UI thread.
     capturedResults.push( message.message );
-    AddMessage( message.message );
+    std::string* userData = ( std::string* ) user;
+    *userData             = message.message;
 }
 
-void capturePackets()
+void capturePackets( ArpChat::ArpChat& arpChat )
 {
     char errbuf[ PCAP_ERRBUF_SIZE ];
 
@@ -120,12 +109,15 @@ void capturePackets()
     }
 
     // Start capturing packets and pass them to the packetHandler function
-    pcap_loop( handle, 0, packetHandler, nullptr );
+    std::string dataBuffer;
+    pcap_loop( handle, 0, packetHandler, ( u_char* ) &dataBuffer );
+    arpChat.AddMessage( dataBuffer );
 
     pcap_close( handle );
 }
 
 void sendGratuitousArp( ftxui::ScreenInteractive& screen,
+                        ArpChat::ArpChat&         arpChat,
                         bool                      announceNewUser = false )
 {
     libnet_t* l;
@@ -144,8 +136,7 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
     uint8_t sourceMac[]    = { 0x74, 0x8f, 0x3c, 0xb9, 0x8f, 0xf5 };
     uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-    std::string customData = inputBuffer;   // Access inputBuffer here
-    customData             = MESSAGE_PREFIX + inputBuffer;
+    std::string customData = MESSAGE_PREFIX + arpChat.arpGui.inputBuffer;
 
     // Build ARP packet
     libnet_ptag_t arp_tag = libnet_build_arp(
@@ -184,38 +175,12 @@ void sendGratuitousArp( ftxui::ScreenInteractive& screen,
     else
     {
         // Clear the input field and trigger a custom event to update the UI
-        inputBuffer.clear();
+        arpChat.arpGui.inputBuffer.clear();
         screen.PostEvent( ftxui::Event::Custom );
     }
 
     // Cleanup
     libnet_destroy( l );
-}
-
-// Function to add a new message to the chat history.
-void AddMessage( const std::string& message )
-{
-    std::lock_guard<std::mutex> lock( chatMutex );
-    chatHistory.push_back( message );
-    updateFlag = true;
-
-    // Limit the chat history to a certain number of messages.
-    const size_t maxHistorySize = 10;
-    while ( chatHistory.size() > maxHistorySize )
-    {
-        chatHistory.pop_front();
-    }
-}
-
-void UpdateLoop()
-{
-    while ( true )
-    {
-        std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-
-        // Set the update flag.
-        updateFlag = true;
-    }
 }
 
 // This function needs a refactoring because copy paste from above
@@ -253,22 +218,22 @@ void announceNewUser()
     uint8_t sourceMac[]    = { 0x74, 0x8f, 0x3c, 0xb9, 0x8f, 0xf5 };
     uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-    auto screen = ScreenInteractive::TerminalOutput();
-    auto component_ =
-        CatchEvent( renderer,
-                    [ & ]( Event event )
-                    {
-                        if ( event == ftxui::Event::Return )
-                        {
-                            // Call your function to send
-                            // messages.
-                            macToUsernameMapping[ ArpChat::macToString( sourceMac ) ] =
-                                first_name;
-                            screen.ExitLoopClosure()();
-                            return true;
-                        }
-                        return false;
-                    } );
+    auto screen     = ScreenInteractive::TerminalOutput();
+    auto component_ = CatchEvent(
+        renderer,
+        [ & ]( Event event )
+        {
+            if ( event == ftxui::Event::Return )
+            {
+                // Call your function to send
+                // messages.
+                macToUsernameMapping[ ArpChat::macToString( sourceMac ) ] =
+                    first_name;
+                screen.ExitLoopClosure()();
+                return true;
+            }
+            return false;
+        } );
 
     screen.Loop( component_ );
 
@@ -337,7 +302,9 @@ void announceNewUser()
 int main()
 {
     // Start a thread for packet capture
-    std::thread captureThread( capturePackets );
+    auto        arpChat = ArpChat::ArpChat();
+    std::thread captureThread( [ &arpChat ]() { capturePackets( arpChat ); } );
+
     announceNewUser();
 
     ////////////////////////////////////////////////////////////////////////////////////
@@ -349,19 +316,14 @@ int main()
     using namespace ftxui;
     auto screen = ScreenInteractive::TerminalOutput();
 
-    // The component tree:
-    auto inputComponent = Container::Vertical( {
-        inputField,
-    } );
-
     auto renderer = Renderer(
-        inputComponent,
+        arpChat.arpGui.getVInputField(),
         [ & ]
         {
-            std::lock_guard<std::mutex> lock( chatMutex );
+            std::lock_guard<std::mutex> lock( arpChat.chatMutex );
 
             std::vector<Element> chatElements;
-            for ( const auto& message : chatHistory )
+            for ( const auto& message : arpChat.chatHistory )
             {
                 chatElements.push_back( text( message ) );
             }
@@ -370,13 +332,13 @@ int main()
             auto tmpVbox = vbox( std::move( chatElements ) );
 
             // Reset the update flag.
-            updateFlag = false;
+            arpChat.updateFlag = false;
 
             // Create a vbox for the chat history and input field.
             auto vboxWithInput =
                 vbox( { text( L"Chat History" ) | hcenter, tmpVbox, separator(),
                         hbox( text( " Message Input : " ),
-                              inputField->Render() ) } ) |
+                              arpChat.arpGui.getInputField()->Render() ) } ) |
                 border;
 
             return vboxWithInput;
@@ -395,7 +357,7 @@ int main()
                         else if ( event == ftxui::Event::Return )
                         {
                             // Call your function to send messages.
-                            sendGratuitousArp( screen );
+                            sendGratuitousArp( screen, arpChat );
                             return true;
                         }
                         return false;

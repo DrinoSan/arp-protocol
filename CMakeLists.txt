@@ -11,7 +11,7 @@ set(CMAKE_CXX_COMPILER clang++)
 
 
 # Create the executable target
-add_executable(main main.cpp messages.cpp utils.cpp)
+add_executable(main main.cpp messages.cpp utils.cpp gui.cpp ArpChat.cpp)
 
 # Find the ftxui package
 find_package(ftxui REQUIRED)
