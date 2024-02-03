@@ -51,8 +51,9 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
         macToUsernameMapping[ message.mac ] = message.message;
         std::string buf = std::string( "New User (" ) + message.message +
                           ") entered the chat";
-        std::string* userData = ( std::string* ) user;
-        *userData             = buf;
+	ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
+
+	userData->AddMessage(buf);
         capturedResults.push( message.message );
 
         return;
@@ -63,8 +64,8 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
 
     // Store the result in the queue for the UI thread.
     capturedResults.push( message.message );
-    std::string* userData = ( std::string* ) user;
-    *userData             = message.message;
+    ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
+    userData->AddMessage( message.message );
 }
 
 void capturePackets( ArpChat::ArpChat& arpChat )
@@ -109,9 +110,8 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     }
 
     // Start capturing packets and pass them to the packetHandler function
-    std::string dataBuffer;
-    pcap_loop( handle, 0, packetHandler, ( u_char* ) &dataBuffer );
-    arpChat.AddMessage( dataBuffer );
+    pcap_loop( handle, 0, packetHandler, ( u_char* ) &arpChat );
+
 
     pcap_close( handle );
 }
