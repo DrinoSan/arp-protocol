@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.12)
-
+ 
+include(FetchContent)
+set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
+FetchContent_Declare(ftxui
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
+  GIT_TAG main # Important: Specify a version or a commit hash here.
+)
+FetchContent_MakeAvailable(ftxui)
+ 
 project(ArpChat)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -11,17 +19,20 @@ set(CMAKE_CXX_COMPILER clang++)
 
 
 # Create the executable target
-add_executable(main main.cpp messages.cpp utils.cpp)
+add_executable(main main.cpp messages.cpp utils.cpp gui.cpp ArpChat.cpp)
 
 # Find the ftxui package
-find_package(ftxui REQUIRED)
+#find_package(ftxui REQUIRED)
 find_package(Threads REQUIRED)
 
 # Link against the ftxui libraries
 target_link_libraries(main PRIVATE
-    ftxui::screen
-    ftxui::dom
-    ftxui::component
+    PRIVATE ftxui::screen
+    PRIVATE ftxui::dom
+    PRIVATE ftxui::component # Not needed for this example.
+    # ftxui::screen
+    # ftxui::dom
+    # ftxui::component
     Threads::Threads
 )
 

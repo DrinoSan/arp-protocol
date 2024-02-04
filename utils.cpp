@@ -1,7 +1,7 @@
 #include "utils.h"
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 namespace ArpChat
 {
