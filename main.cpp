@@ -85,9 +85,9 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     if ( handle == nullptr )
     {
         std::cerr << "Could not open device: " << errbuf << std::endl;
-        printf("Possible available network interfaces:\n");
+        printf( "Possible available network interfaces:\n" );
         showActiveInterfaces();
-        exit(1);
+        exit( 1 );
     }
 
     // Set a filter to capture only ARP packets
