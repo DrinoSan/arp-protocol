@@ -1,12 +1,12 @@
 #pragma once
 
 #include <cstdint>
-#include <iomanip>
 #include <string>
+#include <string_view>
 
-#define MESSAGE_PREFIX        "1_SAND"
-#define NEW_USER_ANNOUNCEMENT "2_SAND"
-#define MESSAGE_PREFIX_LENGTH 6
+constexpr std::string_view MESSAGE_PREFIX{ "1_SAND" };
+constexpr std::string_view NEW_USER_ANNOUNCEMENT{ "2_SAND" };
+constexpr int32_t          MESSAGE_PREFIX_LENGTH{ 6 };
 
 namespace ArpChat
 {
@@ -51,7 +51,7 @@ class EthernetFrame
 class ArpMessage
 {
   public:
-    ArpMessage( );
+    ArpMessage();
     ~ArpMessage() = default;
 
     static bool isArpChatMessage( const unsigned char* packet );
