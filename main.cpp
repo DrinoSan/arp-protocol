@@ -1,6 +1,3 @@
-#include <cstring>
-#include <deque>
-#include <fstream>
 #include <iostream>
 #include <libnet.h>
 #include <map>
