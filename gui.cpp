@@ -1,3 +1,5 @@
+#include "ftxui/component/component.hpp"
+
 #include "gui.h"
 
 
