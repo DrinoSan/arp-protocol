@@ -1,9 +1,9 @@
-#include "gui.h"
+#include "ArpGui.h"
 
 namespace ArpChat
 {
 
-ArpGui::ArpGui()
+ArpGui::ArpGui() : screen{ ftxui::ScreenInteractive::TerminalOutput() }
 {
     inputField =
         ftxui::Input( &inputBuffer, "Type a message and press Enter..." );

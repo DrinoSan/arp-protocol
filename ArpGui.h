@@ -12,7 +12,7 @@ namespace ArpChat
 class ArpGui
 {
   public:
-    ArpGui();
+    explicit ArpGui();
     ~ArpGui() = default;
 
     auto getInputField() { return inputField; }
@@ -21,8 +21,12 @@ class ArpGui
 
     void prepareInputFieldForChat();
 
+// Curently working on (TODO):
+// Move all the screen stuff to this class because it does not make sense to have it in main.cpp
+// Cleanup in main the duplicated code
   public:
-    std::string      inputBuffer;
-    ftxui::Component inputField;
+    std::string                      inputBuffer;
+    ftxui::Component                 inputField;
+    ftxui::ScreenInteractive         screen;
 };
 }   // namespace ArpChat

@@ -23,7 +23,7 @@ class ArpChat
 
     // This function needs a refactoring because copy paste from above
     void
-    announceNewUser( std::map<std::string, std::string> macToUsernameMapping );
+    announceNewUser( std::map<std::string, std::string>& macToUsernameMapping );
 
     void sendGratuitousArp( ftxui::ScreenInteractive& screen,
                             bool                      announceNewUser = false );

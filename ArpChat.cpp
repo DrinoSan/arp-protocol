@@ -32,7 +32,7 @@ void ArpChat::AddMessage( const std::string& message )
 }
 
 void ArpChat::announceNewUser(
-    std::map<std::string, std::string> macToUsernameMapping )
+    std::map<std::string, std::string>& macToUsernameMapping )
 {
     using namespace ftxui;
 

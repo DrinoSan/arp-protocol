@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 
+
 // ArpChat includes
 #include "ArpChat.h"
 #include "gui.h"
@@ -53,13 +54,14 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     ArpChat::ArpMessage message;
     message.parseArpChatMessage( packet );
 
+    ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
+
     // We got a new user
     if ( message.prefix == NEW_USER_ANNOUNCEMENT )
     {
         macToUsernameMapping[ message.mac ] = message.message;
         std::string buf = std::string( "New User (" ) + message.message +
                           ") entered the chat";
-        ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
 
         userData->AddMessage( buf );
 
@@ -70,7 +72,6 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     message.message = userName += ": " + message.message;
 
     // Store the result in the queue for the UI thread.
-    ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
     userData->AddMessage( message.message );
 }
 
@@ -159,7 +160,6 @@ int main( int argc, char* argv[] )
 
     // Main UI loop.
     using namespace ftxui;
-    auto screen = ScreenInteractive::TerminalOutput();
 
     auto renderer = Renderer(
         arpChat.arpGui.getVInputField(),
@@ -195,14 +195,14 @@ int main( int argc, char* argv[] )
                     {
                         if ( event == ftxui::Event::Character( 'q' ) )
                         {
-                            screen.ExitLoopClosure()();
+                            arpChat.arpGui.screen.ExitLoopClosure()();
                             stopCapturing = false;
                             return true;
                         }
                         else if ( event == ftxui::Event::Return )
                         {
                             // Call your function to send messages.
-                            arpChat.sendGratuitousArp( screen );
+                            arpChat.sendGratuitousArp( arpChat.arpGui.screen );
                             return true;
                         }
                         return false;
@@ -215,11 +215,11 @@ int main( int argc, char* argv[] )
             while ( !stopCapturing )
             {
                 std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-                screen.PostEvent( ftxui::Event::Custom );
+                arpChat.arpGui.screen.PostEvent( ftxui::Event::Custom );
             }
         } );
 
-    screen.Loop( component );
+    arpChat.arpGui.screen.Loop( component );
 
     ////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////// GUI STUFF END
