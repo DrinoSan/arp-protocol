@@ -7,6 +7,7 @@
 namespace ArpChat
 {
 
+//-----------------------------------------------------------------------------
 EthernetFrame::EthernetFrame( const unsigned char* packet, int length )
 {
     destinationMacAddr = hexToString( packet );
@@ -29,6 +30,7 @@ EthernetFrame::EthernetFrame( const unsigned char* packet, int length )
     payload.tha = hexToString( packetPayload + 18 );
 }
 
+//-----------------------------------------------------------------------------
 std::string EthernetFrame::hexToString( const unsigned char* packet )
 {
     std::stringstream macAddress;
@@ -43,6 +45,7 @@ std::string EthernetFrame::hexToString( const unsigned char* packet )
     return macAddress.str();
 }
 
+//-----------------------------------------------------------------------------
 std::string EthernetFrame::ipToString( const unsigned char* packet )
 {
     std::stringstream ipAddress;
@@ -56,6 +59,7 @@ std::string EthernetFrame::ipToString( const unsigned char* packet )
     return ipAddress.str();
 }
 
+//-----------------------------------------------------------------------------
 bool EthernetFrame::isArp( const unsigned char* packet )
 {
     auto etherType = packet[ 12 ] << 8 | packet[ 13 ];
@@ -71,8 +75,10 @@ bool EthernetFrame::isArp( const unsigned char* packet )
 // -----------------------------------------------------------------------------
 // ARP Message Definitions
 
+//-----------------------------------------------------------------------------
 ArpMessage::ArpMessage() {}
 
+//-----------------------------------------------------------------------------
 bool ArpMessage::isArpChatMessage( const unsigned char* packet )
 {
     auto packetPayload = packet + 14;
@@ -103,6 +109,7 @@ bool ArpMessage::isArpChatMessage( const unsigned char* packet )
     return true;
 }
 
+//-----------------------------------------------------------------------------
 void ArpMessage::parseArpChatMessage( const unsigned char* packet )
 {
     // packetPayload + 14 -> offset of the ethernetframe payload

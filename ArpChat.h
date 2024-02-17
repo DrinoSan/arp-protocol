@@ -1,22 +1,23 @@
 #pragma once
 
+// System Headers
 #include <deque>
 #include <map>
 #include <mutex>
 #include <string>
 
+// Project headers
 #include "ArpGui.h"
+#include <ftxui/component/screen_interactive.hpp>
 
 namespace ArpChat
 {
 class ArpChat
 {
   public:
-    explicit ArpChat( std::string interface_tmp ) : interface{ interface_tmp }
+    explicit ArpChat( std::string interface_tmp ) : arpProtocol{ interface_tmp }
     {
-        printf( "Created arpChat for interface: %s\n", interface.c_str() );
     }
-    ~ArpChat() = default;
 
     // Function to add a new message to the chat history.
     void AddMessage( const std::string& message );
@@ -28,12 +29,18 @@ class ArpChat
     void sendGratuitousArp( ftxui::ScreenInteractive& screen,
                             bool                      announceNewUser = false );
 
-    // Gui
-    void setInputFieldText( const std::string& inputText );
+    // Gui stuff
+    inline void postGuiEvent( const ftxui::Event& event )
+    {
+        arpGui.postEvent( event );
+    }
 
-    // Gui
-  public:
-    ArpGui arpGui;
+    inline void run() { arpGui.run( chatHistory, arpProtocol ); }
+
+    inline const char* getInterface() const
+    {
+        return arpProtocol.getInterface().c_str();
+    }
 
   public:
     // Chat and history stuff
@@ -42,6 +49,7 @@ class ArpChat
     bool                    updateFlag = false;
 
   public:
-    std::string interface;
+    ArpProtocol arpProtocol;
+    ArpGui      arpGui;
 };
 }   // namespace ArpChat

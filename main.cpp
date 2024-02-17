@@ -19,6 +19,7 @@
 bool                               stopCapturing = false;
 std::map<std::string, std::string> macToUsernameMapping;
 
+//-----------------------------------------------------------------------------
 void showActiveInterfaces()
 {
     struct ifaddrs* ifAddrStruct = nullptr;
@@ -38,6 +39,7 @@ void showActiveInterfaces()
     }
 }
 
+//-----------------------------------------------------------------------------
 void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
                     const unsigned char* packet )
 {
@@ -75,13 +77,14 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     userData->AddMessage( message.message );
 }
 
+//-----------------------------------------------------------------------------
 void capturePackets( ArpChat::ArpChat& arpChat )
 {
     char errbuf[ PCAP_ERRBUF_SIZE ];
 
     // Open a network interface for packet capture
     pcap_t* handle =
-        pcap_open_live( arpChat.interface.c_str(), BUFSIZ, 1, 1000, errbuf );
+        pcap_open_live( arpChat.getInterface(), BUFSIZ, 1, 1000, errbuf );
 
     if ( handle == nullptr )
     {
@@ -97,8 +100,7 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     bpf_u_int32        mask;
     bpf_u_int32        net;
 
-    if ( pcap_lookupnet( arpChat.interface.c_str(), &net, &mask, errbuf ) ==
-         -1 )
+    if ( pcap_lookupnet( arpChat.getInterface(), &net, &mask, errbuf ) == -1 )
     {
         std::cerr << "Couldn't get netmask for device: " << errbuf << std::endl;
         net  = 0;
@@ -126,6 +128,7 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     pcap_close( handle );
 }
 
+//-----------------------------------------------------------------------------
 int main( int argc, char* argv[] )
 {
     // Parsing the bad boys
@@ -149,12 +152,9 @@ int main( int argc, char* argv[] )
     auto        arpChat = ArpChat::ArpChat( argv[ 2 ] );
     std::thread captureThread( [ &arpChat ]() { capturePackets( arpChat ); } );
 
+    // Calls arpGui and arpProtocol to get the userName and send it via
+    // arpProtocol
     arpChat.announceNewUser( macToUsernameMapping );
-
-    // Arp gui stuff
-    arpChat.arpGui.prepareInputFieldForChat();
-    arpChat.arpGui.createRenderer();
-    arpChat.arpGui.createComponent();
 
     // Start a thread for automatic updates using a timer.
     std::thread timerThread(
@@ -163,11 +163,11 @@ int main( int argc, char* argv[] )
             while ( !stopCapturing )
             {
                 std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-                arpChat.arpGui.screen.PostEvent( ftxui::Event::Custom );
+                arpChat.postGuiEvent( ftxui::Event::Custom );
             }
         } );
 
-    arpChat.arpGui.screen.Loop( component );
+    arpChat.run();
 
     // Wait for the capture thread to finish
     captureThread.join();
