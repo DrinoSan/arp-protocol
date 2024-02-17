@@ -12,7 +12,7 @@
 
 // ArpChat includes
 #include "ArpChat.h"
-#include "gui.h"
+#include "ArpGui.h"
 #include "messages.h"
 
 // I know global variables are usually bad but
@@ -151,62 +151,10 @@ int main( int argc, char* argv[] )
 
     arpChat.announceNewUser( macToUsernameMapping );
 
+    // Arp gui stuff
     arpChat.arpGui.prepareInputFieldForChat();
-
-    ////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////// GUI STUFF BEGINN
-    /////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////
-
-    // Main UI loop.
-    using namespace ftxui;
-
-    auto renderer = Renderer(
-        arpChat.arpGui.getVInputField(),
-        [ & ]
-        {
-            std::lock_guard<std::mutex> lock( arpChat.chatMutex );
-
-            std::vector<Element> chatElements;
-            for ( const auto& message : arpChat.chatHistory )
-            {
-                chatElements.push_back( text( message ) );
-            }
-
-            // Combine the text elements into a vbox.
-            auto tmpVbox = vbox( std::move( chatElements ) );
-
-            // Reset the update flag.
-            arpChat.updateFlag = false;
-
-            // Create a vbox for the chat history and input field.
-            auto vboxWithInput =
-                vbox( { text( L"Chat History" ) | hcenter, tmpVbox, separator(),
-                        hbox( text( " Message Input : " ),
-                              arpChat.arpGui.getInputField()->Render() ) } ) |
-                border;
-
-            return vboxWithInput;
-        } );
-
-    auto component =
-        CatchEvent( renderer,
-                    [ & ]( Event event )
-                    {
-                        if ( event == ftxui::Event::Character( 'q' ) )
-                        {
-                            arpChat.arpGui.screen.ExitLoopClosure()();
-                            stopCapturing = false;
-                            return true;
-                        }
-                        else if ( event == ftxui::Event::Return )
-                        {
-                            // Call your function to send messages.
-                            arpChat.sendGratuitousArp( arpChat.arpGui.screen );
-                            return true;
-                        }
-                        return false;
-                    } );
+    arpChat.arpGui.createRenderer();
+    arpChat.arpGui.createComponent();
 
     // Start a thread for automatic updates using a timer.
     std::thread timerThread(
@@ -220,11 +168,6 @@ int main( int argc, char* argv[] )
         } );
 
     arpChat.arpGui.screen.Loop( component );
-
-    ////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////// GUI STUFF END
-    ////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////
 
     // Wait for the capture thread to finish
     captureThread.join();

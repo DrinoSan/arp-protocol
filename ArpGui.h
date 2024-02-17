@@ -21,12 +21,17 @@ class ArpGui
 
     void prepareInputFieldForChat();
 
-// Curently working on (TODO):
-// Move all the screen stuff to this class because it does not make sense to have it in main.cpp
-// Cleanup in main the duplicated code
+    ftxui::Component createRenderer();
+    ftxui::Component createComponent();
+
+    // Curently working on (TODO):
+    // Move all the screen stuff to this class because it does not make sense to
+    // have it in main.cpp Cleanup in main the duplicated code
   public:
     std::string                      inputBuffer;
     ftxui::Component                 inputField;
     ftxui::ScreenInteractive         screen;
+    ftxui::Component                 renderer;
+    ftxui::Component                 component;
 };
 }   // namespace ArpChat

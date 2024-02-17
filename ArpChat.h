@@ -5,7 +5,7 @@
 #include <mutex>
 #include <string>
 
-#include "gui.h"
+#include "ArpGui.h"
 
 namespace ArpChat
 {
