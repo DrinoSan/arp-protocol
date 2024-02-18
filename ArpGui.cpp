@@ -56,7 +56,11 @@ void ArpGui::initRendererComponent( const std::deque<std::string>& chatHistory,
                 if ( arpProtocol.sendArpMessage(
                          inputBuffer, std::string( MESSAGE_PREFIX ) ) )
                 {
-                    postEvent( event );
+                    // TAKE CARE WHAT EVENTS YOU SEND.
+                    // YOU JUST SPEND HOURS OF DEBUGGING TO FIND THAT YOU
+                    // JUST FOWARDED THE EVENT::RETURN and so we ended up in
+                    // this infinit loop GO SLEEP NOW
+                    postEvent( ftxui::Event::Custom );
                     inputBuffer.clear();
                     return true;
                 }
@@ -100,7 +104,7 @@ std::string ArpGui::registerMyself(
     } );
 
     // Tweak how the component tree is rendered:
-    auto renderer = Renderer(
+    auto renderer_ = Renderer(
         component,
         [ & ]
         {
@@ -115,9 +119,9 @@ std::string ArpGui::registerMyself(
     uint8_t sourceMac[]    = { 0x74, 0x8f, 0x3c, 0xb9, 0x8f, 0xf5 };
     uint8_t broadcastMac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-    auto screen = ScreenInteractive::TerminalOutput();
+    auto screen_ = ScreenInteractive::TerminalOutput();
     auto component_ =
-        CatchEvent( renderer,
+        CatchEvent( renderer_,
                     [ & ]( Event event )
                     {
                         if ( event == ftxui::Event::Return )
@@ -126,14 +130,14 @@ std::string ArpGui::registerMyself(
                             // messages.
                             macToUsernameMapping[ macToString( sourceMac ) ] =
                                 inputBuffer;
-                            screen.ExitLoopClosure()();
+                            screen_.ExitLoopClosure()();
                             return true;
                         }
                         return false;
                     } );
 
     // Stuck in infinit loop until user confirms with enter
-    screen.Loop( component_ );
+    screen_.Loop( component_ );
 
     return inputBuffer;
 }

@@ -155,6 +155,7 @@ int main( int argc, char* argv[] )
     // Calls arpGui and arpProtocol to get the userName and send it via
     // arpProtocol
     arpChat.announceNewUser( macToUsernameMapping );
+    arpChat.prepareGui();
 
     // Start a thread for automatic updates using a timer.
     std::thread timerThread(

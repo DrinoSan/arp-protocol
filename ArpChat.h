@@ -8,7 +8,6 @@
 
 // Project headers
 #include "ArpGui.h"
-#include <ftxui/component/screen_interactive.hpp>
 
 namespace ArpChat
 {
@@ -26,9 +25,6 @@ class ArpChat
     void
     announceNewUser( std::map<std::string, std::string>& macToUsernameMapping );
 
-    void sendGratuitousArp( ftxui::ScreenInteractive& screen,
-                            bool                      announceNewUser = false );
-
     // Gui stuff
     inline void postGuiEvent( const ftxui::Event& event )
     {
@@ -41,6 +37,8 @@ class ArpChat
     {
         return arpProtocol.getInterface().c_str();
     }
+
+    void prepareGui();
 
   public:
     // Chat and history stuff

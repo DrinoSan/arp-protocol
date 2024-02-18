@@ -37,7 +37,14 @@ void ArpChat::announceNewUser(
                                 std::string( NEW_USER_ANNOUNCEMENT ) );
 
     // Preparing inputField for normal chat
+    arpGui.clearInputBuffer();
     arpGui.prepareChatInputField();
+}
+
+//-----------------------------------------------------------------------------
+void ArpChat::prepareGui()
+{
+    arpGui.initRendererComponent( chatHistory, arpProtocol );
 }
 
 }   // namespace ArpChat
