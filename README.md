@@ -1,6 +1,9 @@
 # Arp
 Learning about arp protocol and some network stuff
 
+## General
+In general this little project is working and does what it should do.
+We can communicate with other users via the arp protocol.
 
 ## Messages
 The messages file contains all the layer data (EthernetFrame and Arp payload)
@@ -20,7 +23,20 @@ To identify a ArpChat message we add a prefix which is "SAND" to each message.
 
 ## Current Status
 Working on refactoring.
-Split in following parts
-Gui
-Chat
-Messages
+- Currently there is kinda a split going on to split responsibility between arpChat and arpGui
+ - Still need to split them in a better way and cleaner much cleaner
+ - In main there is some code which must be moved to arpGui / arpChat
+- Moved Several functions from main to ArpChat class
+
+## Added 
+- Parsing of simple command line arguments.
+ - Previously in the code the network interface was hardcoded, now the user can provide it himself. If the interface can not be read we will show a list of all available network interfaces
+
+
+## Missing
+- Automagically get Mac address of computer
+
+
+
+## More
+[Blog](https://project-folio.eu/articles/cpp-abuse-arp)

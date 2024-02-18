@@ -9,15 +9,17 @@
 #include <string>
 #include <thread>
 
+
 // ArpChat includes
 #include "ArpChat.h"
-#include "gui.h"
+#include "ArpGui.h"
 #include "messages.h"
 
 // I know global variables are usually bad but
 bool                               stopCapturing = false;
 std::map<std::string, std::string> macToUsernameMapping;
 
+//-----------------------------------------------------------------------------
 void showActiveInterfaces()
 {
     struct ifaddrs* ifAddrStruct = nullptr;
@@ -37,6 +39,7 @@ void showActiveInterfaces()
     }
 }
 
+//-----------------------------------------------------------------------------
 void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
                     const unsigned char* packet )
 {
@@ -53,13 +56,14 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     ArpChat::ArpMessage message;
     message.parseArpChatMessage( packet );
 
+    ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
+
     // We got a new user
     if ( message.prefix == NEW_USER_ANNOUNCEMENT )
     {
         macToUsernameMapping[ message.mac ] = message.message;
         std::string buf = std::string( "New User (" ) + message.message +
                           ") entered the chat";
-        ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
 
         userData->AddMessage( buf );
 
@@ -70,17 +74,17 @@ void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
     message.message = userName += ": " + message.message;
 
     // Store the result in the queue for the UI thread.
-    ArpChat::ArpChat* userData = ( ArpChat::ArpChat* ) user;
     userData->AddMessage( message.message );
 }
 
+//-----------------------------------------------------------------------------
 void capturePackets( ArpChat::ArpChat& arpChat )
 {
     char errbuf[ PCAP_ERRBUF_SIZE ];
 
     // Open a network interface for packet capture
     pcap_t* handle =
-        pcap_open_live( arpChat.interface.c_str(), BUFSIZ, 1, 1000, errbuf );
+        pcap_open_live( arpChat.getInterface(), BUFSIZ, 1, 1000, errbuf );
 
     if ( handle == nullptr )
     {
@@ -96,8 +100,7 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     bpf_u_int32        mask;
     bpf_u_int32        net;
 
-    if ( pcap_lookupnet( arpChat.interface.c_str(), &net, &mask, errbuf ) ==
-         -1 )
+    if ( pcap_lookupnet( arpChat.getInterface(), &net, &mask, errbuf ) == -1 )
     {
         std::cerr << "Couldn't get netmask for device: " << errbuf << std::endl;
         net  = 0;
@@ -125,6 +128,7 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     pcap_close( handle );
 }
 
+//-----------------------------------------------------------------------------
 int main( int argc, char* argv[] )
 {
     // Parsing the bad boys
@@ -148,65 +152,10 @@ int main( int argc, char* argv[] )
     auto        arpChat = ArpChat::ArpChat( argv[ 2 ] );
     std::thread captureThread( [ &arpChat ]() { capturePackets( arpChat ); } );
 
+    // Calls arpGui and arpProtocol to get the userName and send it via
+    // arpProtocol
     arpChat.announceNewUser( macToUsernameMapping );
-
-    arpChat.arpGui.prepareInputFieldForChat();
-
-    ////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////// GUI STUFF BEGINN
-    /////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////
-
-    // Main UI loop.
-    using namespace ftxui;
-    auto screen = ScreenInteractive::TerminalOutput();
-
-    auto renderer = Renderer(
-        arpChat.arpGui.getVInputField(),
-        [ & ]
-        {
-            std::lock_guard<std::mutex> lock( arpChat.chatMutex );
-
-            std::vector<Element> chatElements;
-            for ( const auto& message : arpChat.chatHistory )
-            {
-                chatElements.push_back( text( message ) );
-            }
-
-            // Combine the text elements into a vbox.
-            auto tmpVbox = vbox( std::move( chatElements ) );
-
-            // Reset the update flag.
-            arpChat.updateFlag = false;
-
-            // Create a vbox for the chat history and input field.
-            auto vboxWithInput =
-                vbox( { text( L"Chat History" ) | hcenter, tmpVbox, separator(),
-                        hbox( text( " Message Input : " ),
-                              arpChat.arpGui.getInputField()->Render() ) } ) |
-                border;
-
-            return vboxWithInput;
-        } );
-
-    auto component =
-        CatchEvent( renderer,
-                    [ & ]( Event event )
-                    {
-                        if ( event == ftxui::Event::Character( 'q' ) )
-                        {
-                            screen.ExitLoopClosure()();
-                            stopCapturing = false;
-                            return true;
-                        }
-                        else if ( event == ftxui::Event::Return )
-                        {
-                            // Call your function to send messages.
-                            arpChat.sendGratuitousArp( screen );
-                            return true;
-                        }
-                        return false;
-                    } );
+    arpChat.prepareGui();
 
     // Start a thread for automatic updates using a timer.
     std::thread timerThread(
@@ -215,16 +164,11 @@ int main( int argc, char* argv[] )
             while ( !stopCapturing )
             {
                 std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-                screen.PostEvent( ftxui::Event::Custom );
+                arpChat.postGuiEvent( ftxui::Event::Custom );
             }
         } );
 
-    screen.Loop( component );
-
-    ////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////// GUI STUFF END
-    ////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////
+    arpChat.run();
 
     // Wait for the capture thread to finish
     captureThread.join();

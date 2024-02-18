@@ -1,39 +1,44 @@
 #pragma once
 
+// System Headers
 #include <deque>
 #include <map>
 #include <mutex>
 #include <string>
 
-#include "gui.h"
+// Project headers
+#include "ArpGui.h"
 
 namespace ArpChat
 {
 class ArpChat
 {
   public:
-    explicit ArpChat( std::string interface_tmp ) : interface{ interface_tmp }
+    explicit ArpChat( std::string interface_tmp ) : arpProtocol{ interface_tmp }
     {
-        printf( "Created arpChat for interface: %s\n", interface.c_str() );
     }
-    ~ArpChat() = default;
 
     // Function to add a new message to the chat history.
     void AddMessage( const std::string& message );
 
     // This function needs a refactoring because copy paste from above
     void
-    announceNewUser( std::map<std::string, std::string> macToUsernameMapping );
+    announceNewUser( std::map<std::string, std::string>& macToUsernameMapping );
 
-    void sendGratuitousArp( ftxui::ScreenInteractive& screen,
-                            bool                      announceNewUser = false );
+    // Gui stuff
+    inline void postGuiEvent( const ftxui::Event& event )
+    {
+        arpGui.postEvent( event );
+    }
 
-    // Gui
-    void setInputFieldText( const std::string& inputText );
+    inline void run() { arpGui.run( chatHistory, arpProtocol ); }
 
-    // Gui
-  public:
-    ArpGui arpGui;
+    inline const char* getInterface() const
+    {
+        return arpProtocol.getInterface().c_str();
+    }
+
+    void prepareGui();
 
   public:
     // Chat and history stuff
@@ -42,6 +47,7 @@ class ArpChat
     bool                    updateFlag = false;
 
   public:
-    std::string interface;
+    ArpProtocol arpProtocol;
+    ArpGui      arpGui;
 };
 }   // namespace ArpChat
