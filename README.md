@@ -1,6 +1,26 @@
 # Arp
 Learning about arp protocol and some network stuff
 
+## Minor Refactoring
+Just did some minor refactoring in the cleanup branch.
+The goal was to simplify the archtitecture. And to kinda follow SRP but it still seems i have strong coupling
+
+- ArpChat
+  - Is the Main Object the controler
+  - Is responsible to control ArpProtocol and ArpGui
+- ArpGui
+  - Holds now all logic for gui and only gui logic
+  - SRP is fine here
+- ArpProtocol
+  - Is responsible to send and receive data via the ARP protocol
+  - Does not care for what happens in the gui
+  - Still needs some work done because the receiving of messages is still happening in main.cpp
+  - At least sending packages can be done via ArpProtocol class
+
+The communication between the GUI and the protocol is executed via a buffer called chatHistory
+
+
+
 ## General
 In general this little project is working and does what it should do.
 We can communicate with other users via the arp protocol.
