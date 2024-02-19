@@ -1,4 +1,3 @@
-#include <ifaddrs.h>
 #include <iostream>
 #include <libnet.h>
 #include <map>
@@ -19,25 +18,6 @@
 bool                               stopCapturing = false;
 std::map<std::string, std::string> macToUsernameMapping;
 
-//-----------------------------------------------------------------------------
-void showActiveInterfaces()
-{
-    struct ifaddrs* ifAddrStruct = nullptr;
-    struct ifaddrs* ifa          = nullptr;
-
-    if ( getifaddrs( &ifAddrStruct ) == 0 )
-    {
-        for ( ifa = ifAddrStruct; ifa != nullptr; ifa = ifa->ifa_next )
-        {
-            if ( ifa->ifa_addr != nullptr )
-            {
-                std::cout << "Interface: " << ifa->ifa_name << std::endl;
-            }
-        }
-
-        freeifaddrs( ifAddrStruct );
-    }
-}
 
 //-----------------------------------------------------------------------------
 void packetHandler( unsigned char* user, const struct pcap_pkthdr* pkthdr,
@@ -90,7 +70,7 @@ void capturePackets( ArpChat::ArpChat& arpChat )
     {
         std::cerr << "Could not open device: " << errbuf << std::endl;
         printf( "Possible available network interfaces:\n" );
-        showActiveInterfaces();
+        ArpChat::showActiveInterfaces();
         exit( 1 );
     }
 
@@ -158,6 +138,8 @@ int main( int argc, char* argv[] )
     arpChat.prepareGui();
 
     // Start a thread for automatic updates using a timer.
+    //  This is needed to automatically refresh the chat gui
+    //  If not, then it only refreshes on actual change for example typing a key
     std::thread timerThread(
         [ & ]
         {
